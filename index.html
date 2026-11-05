@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PDF Studio · DevJLopez — Unir, Separar y Comprimir PDFs</title>
+  <title>PDF Studio · DevJLopez — Unir, Separar, Comprimir y Convertir PDFs a Word</title>
   <link rel="icon" type="image/png" href="assets/favicon.png" />
   <link rel="stylesheet" href="styles.css" />
   <!-- Librerías 100% Open Source con licencias permisivas (MIT y Apache 2.0) libres para uso comercial/empresarial -->
@@ -13,7 +14,10 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <!-- 3. fflate (Licencia MIT pura): https://github.com/101arrowz/fflate -->
   <script src="https://unpkg.com/fflate@0.8.2/umd/index.js"></script>
+  <!-- 4. docx (Licencia MIT): https://github.com/dolanmiu/docx -->
+  <script src="https://unpkg.com/docx@9/dist/index.iife.js"></script>
 </head>
+
 <body>
   <div class="app-container">
     <!-- Encabezado -->
@@ -25,7 +29,7 @@
         <div class="brand-divider"></div>
         <div>
           <h1>PDF Studio <span class="badge-local">Servidor Privado · Open Source</span></h1>
-          <p class="subtitle">Suite corporativa de documentos PDF · Procesamiento seguro en cliente</p>
+          <p class="subtitle">Manejo de PDF seguro en server locales</p>
         </div>
       </div>
 
@@ -33,7 +37,8 @@
       <nav class="tabs-nav" role="tablist">
         <button class="tab-btn active" data-tab="merge" role="tab" aria-selected="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3">
+            </path>
             <line x1="12" y1="8" x2="12" y2="16"></line>
             <line x1="8" y1="12" x2="16" y2="12"></line>
           </svg>
@@ -58,6 +63,16 @@
           </svg>
           Comprimir PDF
         </button>
+        <button class="tab-btn" data-tab="word" role="tab" aria-selected="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          PDF a Word
+        </button>
       </nav>
     </header>
 
@@ -67,7 +82,8 @@
         <div class="panel-header">
           <div>
             <h2>Unir varios archivos PDF</h2>
-            <p>Agrega tus archivos PDF, ordénalos y elige el nivel de compresión antes de guardar el documento final.</p>
+            <p>Agrega tus archivos PDF, ordénalos y elige el nivel de compresión antes de guardar el documento final.
+            </p>
           </div>
         </div>
 
@@ -88,7 +104,8 @@
         <div id="merge-workspace" class="workspace hidden">
           <div class="workspace-toolbar">
             <div class="stats-pill">
-              <span id="merge-count">0 archivos</span> · <span id="merge-total-pages">0 páginas</span> · Peso suma: <strong id="merge-total-size">0 KB</strong>
+              <span id="merge-count">0 archivos</span> · <span id="merge-total-pages">0 páginas</span> · Peso suma:
+              <strong id="merge-total-size">0 KB</strong>
             </div>
             <div class="toolbar-actions">
               <button type="button" class="btn btn-ghost" id="merge-add-more-btn">+ Agregar más PDFs</button>
@@ -102,7 +119,8 @@
           <div class="save-compression-box">
             <div class="save-compression-header">
               <span class="save-compression-title">Nivel de compresión al guardar:</span>
-              <span class="save-compression-hint">Puedes unir manteniendo calidad original o comprimir el resultado automáticamente</span>
+              <span class="save-compression-hint">Puedes unir manteniendo calidad original o comprimir el resultado
+                automáticamente</span>
             </div>
             <div class="compression-pills" data-group="merge-compression">
               <label class="comp-pill">
@@ -158,7 +176,8 @@
         <div class="panel-header">
           <div>
             <h2>Separar o Extraer páginas de un PDF</h2>
-            <p>Selecciona las páginas que necesitas, define el modo de salida y elige el nivel de compresión al guardar.</p>
+            <p>Selecciona las páginas que necesitas, define el modo de salida y elige el nivel de compresión al guardar.
+            </p>
           </div>
         </div>
 
@@ -180,7 +199,8 @@
         <div id="split-workspace" class="workspace hidden">
           <div class="workspace-toolbar">
             <div class="stats-pill">
-              <strong id="split-file-name">archivo.pdf</strong> · <span id="split-total-pages">0 páginas</span> · <span id="split-original-size">0 KB</span>
+              <strong id="split-file-name">archivo.pdf</strong> · <span id="split-total-pages">0 páginas</span> · <span
+                id="split-original-size">0 KB</span>
             </div>
             <div class="toolbar-actions">
               <button type="button" class="btn btn-ghost" id="split-select-all-btn">Seleccionar todas</button>
@@ -192,7 +212,8 @@
           <div class="split-controls-card">
             <div class="control-group">
               <label for="split-range-input">Páginas o rangos seleccionados (ej. <code>1-3, 5, 8-10</code>):</label>
-              <input type="text" id="split-range-input" placeholder="Haz clic en las páginas de abajo o escribe ej: 1-3, 5" />
+              <input type="text" id="split-range-input"
+                placeholder="Haz clic en las páginas de abajo o escribe ej: 1-3, 5" />
             </div>
             <div class="control-group">
               <label>Modo de salida:</label>
@@ -215,7 +236,8 @@
           <div class="save-compression-box">
             <div class="save-compression-header">
               <span class="save-compression-title">Nivel de compresión al guardar:</span>
-              <span class="save-compression-hint">Aplica tanto al PDF extraído como a los PDFs individuales del archivo .ZIP</span>
+              <span class="save-compression-hint">Aplica tanto al PDF extraído como a los PDFs individuales del archivo
+                .ZIP</span>
             </div>
             <div class="compression-pills" data-group="split-compression">
               <label class="comp-pill">
@@ -271,7 +293,8 @@
         <div class="panel-header">
           <div>
             <h2>Comprimir tamaño de un PDF</h2>
-            <p>Selecciona el nivel de compresión (Baja, Media o Alta) para reducir el tamaño del documento de forma efectiva.</p>
+            <p>Selecciona el nivel de compresión (Baja, Media o Alta) para reducir el tamaño del documento de forma
+              efectiva.</p>
           </div>
         </div>
 
@@ -293,7 +316,8 @@
         <div id="compress-workspace" class="workspace hidden">
           <div class="workspace-toolbar">
             <div class="stats-pill">
-              <strong id="compress-file-name">documento.pdf</strong> · Peso original: <strong id="compress-original-size">0 MB</strong> (<span id="compress-page-count">0 págs</span>)
+              <strong id="compress-file-name">documento.pdf</strong> · Peso original: <strong
+                id="compress-original-size">0 MB</strong> (<span id="compress-page-count">0 págs</span>)
             </div>
             <button type="button" class="btn btn-danger-ghost" id="compress-change-btn">Cambiar archivo</button>
           </div>
@@ -306,7 +330,8 @@
                   <span class="preset-title">Compresión Baja</span>
                   <span class="preset-badge badge-blue">Alta Calidad · ~150 DPI</span>
                 </div>
-                <span class="preset-desc">Mantiene excelente nitidez en textos e imágenes (calidad JPEG 80%). Ideal para informes y presentaciones.</span>
+                <span class="preset-desc">Mantiene excelente nitidez en textos e imágenes (calidad JPEG 80%). Ideal para
+                  informes y presentaciones.</span>
               </div>
             </label>
             <label class="preset-card selected">
@@ -316,7 +341,8 @@
                   <span class="preset-title">Compresión Media</span>
                   <span class="preset-badge badge-green">Recomendada · ~115 DPI</span>
                 </div>
-                <span class="preset-desc">Equilibrio óptimo entre lectura clara y reducción notable de peso (calidad JPEG 60%).</span>
+                <span class="preset-desc">Equilibrio óptimo entre lectura clara y reducción notable de peso (calidad
+                  JPEG 60%).</span>
               </div>
             </label>
             <label class="preset-card">
@@ -326,7 +352,8 @@
                   <span class="preset-title">Compresión Alta</span>
                   <span class="preset-badge badge-amber">Máximo Ahorro · ~85 DPI</span>
                 </div>
-                <span class="preset-desc">Prioriza el menor tamaño de archivo posible (calidad JPEG 40%). Ideal para trámites con límite estricto de MB.</span>
+                <span class="preset-desc">Prioriza el menor tamaño de archivo posible (calidad JPEG 40%). Ideal para
+                  trámites con límite estricto de MB.</span>
               </div>
             </label>
           </div>
@@ -343,6 +370,155 @@
             </div>
             <button type="button" class="btn btn-primary btn-lg" id="compress-run-btn">
               Comprimir y Guardar PDF
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== SECCIÓN 4: PDF A WORD / EDITABLE ==================== -->
+      <section id="tab-word" class="tab-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Convertir PDF a Word y Formatos Editables</h2>
+            <p>Reconstruye el contenido de tu PDF en documentos editables de Microsoft Word (.docx), RTF o texto sin
+              enviar nada a internet.</p>
+          </div>
+        </div>
+
+        <div id="word-dropzone" class="dropzone">
+          <input type="file" id="word-input" accept="application/pdf" hidden />
+          <div class="dropzone-icon">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+          </div>
+          <h3>Arrastra el PDF que deseas convertir a Word</h3>
+          <p>Extracción de párrafos, títulos y páginas 100% en tu navegador · Compatible con Office 365, Google Docs y
+            LibreOffice</p>
+          <button type="button" class="btn btn-secondary" id="word-browse-btn">Elegir archivo PDF</button>
+        </div>
+
+        <div id="word-workspace" class="workspace hidden">
+          <div class="workspace-toolbar">
+            <div class="stats-pill">
+              <strong id="word-file-name">documento.pdf</strong> · Tamaño: <strong id="word-file-size">0 MB</strong> ·
+              Páginas: <strong id="word-page-count">0</strong>
+            </div>
+            <div class="toolbar-actions">
+              <button type="button" class="btn btn-danger-ghost" id="word-change-btn">Cambiar archivo</button>
+            </div>
+          </div>
+
+          <!-- Opciones de formato y reconstrucción -->
+          <div class="word-settings-grid">
+            <div class="word-card-setting">
+              <div class="setting-title-box">
+                <span class="setting-title">1. Formato de salida:</span>
+                <span class="setting-hint">Elige el tipo de archivo que necesitas</span>
+              </div>
+              <div class="compression-pills word-format-pills" data-group="word-format">
+                <label class="comp-pill active" data-format="docx">
+                  <input type="radio" name="word-format" value="docx" checked />
+                  <div>
+                    <strong>Word (.docx)</strong>
+                    <small>Nativo Office 365 / Word 2013-2024</small>
+                  </div>
+                </label>
+                <label class="comp-pill" data-format="rtf">
+                  <input type="radio" name="word-format" value="rtf" />
+                  <div>
+                    <strong>Documento RTF (.rtf)</strong>
+                    <small>Universal (Word, WordPad, LibreOffice)</small>
+                  </div>
+                </label>
+                <label class="comp-pill" data-format="txt">
+                  <input type="radio" name="word-format" value="txt" />
+                  <div>
+                    <strong>Texto Plano (.txt)</strong>
+                    <small>Texto limpio delimitado</small>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div class="word-card-setting">
+              <div class="setting-title-box">
+                <span class="setting-title">2. Modo de reconstrucción de texto:</span>
+                <span class="setting-hint">Define cómo interpretar el flujo de texto</span>
+              </div>
+              <div class="compression-options word-modes">
+                <label class="preset-card selected" id="card-mode-smart">
+                  <input type="radio" name="word-mode" value="smart" checked />
+                  <div class="preset-body">
+                    <div class="preset-top">
+                      <span class="preset-title">Párrafos Fluidos</span>
+                      <span class="preset-badge badge-green">Recomendado</span>
+                    </div>
+                    <span class="preset-desc">Une líneas continuas en párrafos naturales para facilitar la redacción y
+                      edición fluida en Word.</span>
+                  </div>
+                </label>
+                <label class="preset-card" id="card-mode-lines">
+                  <input type="radio" name="word-mode" value="lines" />
+                  <div class="preset-body">
+                    <div class="preset-top">
+                      <span class="preset-title">Línea por Línea</span>
+                      <span class="preset-badge badge-blue">Exacto</span>
+                    </div>
+                    <span class="preset-desc">Conserva los saltos de línea visuales exactos tal como aparecen en el
+                      documento original.</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Vista previa interactiva de texto extraído -->
+          <div class="preview-section">
+            <div class="preview-header">
+              <div class="preview-title-wrap">
+                <span class="preview-heading">Vista previa del contenido extraído:</span>
+                <span class="preview-stats" id="word-preview-stats">Cargando texto...</span>
+              </div>
+              <div class="preview-actions">
+                <button type="button" class="btn btn-ghost btn-sm" id="word-copy-btn"
+                  title="Copiar todo el texto al portapapeles">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                  </svg>
+                  Copiar texto
+                </button>
+              </div>
+            </div>
+            <textarea id="word-preview-text" class="word-preview-area" spellcheck="false"
+              placeholder="El texto editable del PDF aparecerá aquí..."></textarea>
+            <div class="preview-footer-hint">
+              <span>💡 Puedes revisar o retocar el texto antes de generar el documento final.</span>
+            </div>
+          </div>
+
+          <div id="word-result-box" class="result-banner hidden"></div>
+
+          <div class="action-bar">
+            <div class="filename-group">
+              <label for="word-filename">Nombre del archivo editable:</label>
+              <div class="input-suffix">
+                <input type="text" id="word-filename" value="documento-editable" />
+                <span id="word-extension-label">.docx</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary btn-lg" id="word-run-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span id="word-btn-label">Convertir y Descargar Word (.docx)</span>
             </button>
           </div>
         </div>
@@ -378,4 +554,5 @@
 
   <script src="app.js"></script>
 </body>
+
 </html>

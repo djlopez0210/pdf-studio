@@ -23,3 +23,10 @@ comercial sin obligación de abrir el código propio (sin Copyleft / sin GPL).
    - Repositorio: https://github.com/101arrowz/fflate
    - Licencia: MIT License
    - Uso en el proyecto: Empaquetado rápido en formato .ZIP al separar páginas individuales.
+
+4. docx (v9.x)
+   - Autor: Dolan Miu
+   - Repositorio: https://github.com/dolanmiu/docx
+   - Licencia: MIT License
+   - Uso en el proyecto: Ensamblado y generación client-side de documentos Word (.docx).
+

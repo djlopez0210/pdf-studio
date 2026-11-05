@@ -756,3 +756,602 @@ compressRunBtn.addEventListener('click', async () => {
     showToast('Error al comprimir el PDF.');
   }
 });
+
+// ==================== 4. CONVERTIR PDF A WORD / EDITABLE ====================
+const wordState = {
+  fileName: '',
+  fileSize: 0,
+  pageCount: 0,
+  arrayBuffer: null,
+  parsedPages: [], // [{ pageNum, width, height, lines: [{ text, y, fontSize, ... }] }]
+  currentMode: 'smart', // 'smart' | 'lines'
+  currentFormat: 'docx', // 'docx' | 'rtf' | 'txt'
+};
+
+const wordDropzone = document.getElementById('word-dropzone');
+const wordInput = document.getElementById('word-input');
+const wordBrowseBtn = document.getElementById('word-browse-btn');
+const wordWorkspace = document.getElementById('word-workspace');
+const wordChangeBtn = document.getElementById('word-change-btn');
+const wordPreviewText = document.getElementById('word-preview-text');
+const wordPreviewStats = document.getElementById('word-preview-stats');
+const wordCopyBtn = document.getElementById('word-copy-btn');
+const wordResultBox = document.getElementById('word-result-box');
+const wordRunBtn = document.getElementById('word-run-btn');
+const wordFilenameInput = document.getElementById('word-filename');
+const wordExtensionLabel = document.getElementById('word-extension-label');
+const wordBtnLabel = document.getElementById('word-btn-label');
+
+const cardModeSmart = document.getElementById('card-mode-smart');
+const cardModeLines = document.getElementById('card-mode-lines');
+
+/**
+ * Extrae todas las líneas de texto y sus coordenadas desde el PDF usando PDF.js.
+ */
+async function parsePdfContentForWord(arrayBuffer, onProgress = null) {
+  const pdfJsDoc = await window.pdfjsLib.getDocument({ data: arrayBuffer.slice(0) }).promise;
+  const totalPages = pdfJsDoc.numPages;
+  const pages = [];
+
+  for (let p = 1; p <= totalPages; p++) {
+    if (onProgress) onProgress(p, totalPages);
+    const page = await pdfJsDoc.getPage(p);
+    const viewport = page.getViewport({ scale: 1.0 });
+    const textContent = await page.getTextContent({ normalizeWhitespace: true });
+
+    const rawItems = (textContent.items || []).filter((it) => it.str && it.str.length > 0);
+
+    // Mapear elementos a coordenadas visuales (0,0 en esquina superior izquierda)
+    const items = rawItems.map((item) => {
+      const tx = item.transform;
+      const visualY = viewport.height - tx[5];
+      const fontSize = Math.hypot(tx[0], tx[1]) || item.height || 11;
+      return {
+        str: item.str,
+        x: tx[4],
+        visualY,
+        width: item.width || 0,
+        height: item.height || fontSize,
+        fontSize,
+      };
+    });
+
+    // Ordenar elementos visualmente de arriba hacia abajo y de izquierda a derecha
+    items.sort((a, b) => {
+      const diffY = a.visualY - b.visualY;
+      if (Math.abs(diffY) > 3) return diffY;
+      return a.x - b.x;
+    });
+
+    // Agrupar elementos contiguos en la misma línea visual
+    const lines = [];
+    let currentLine = null;
+
+    items.forEach((item) => {
+      if (!currentLine) {
+        currentLine = {
+          y: item.visualY,
+          items: [item],
+          maxFontSize: item.fontSize,
+        };
+      } else {
+        const lineTol = Math.max(3.5, currentLine.maxFontSize * 0.45);
+        if (Math.abs(item.visualY - currentLine.y) <= lineTol) {
+          currentLine.items.push(item);
+          currentLine.maxFontSize = Math.max(currentLine.maxFontSize, item.fontSize);
+        } else {
+          lines.push(currentLine);
+          currentLine = {
+            y: item.visualY,
+            items: [item],
+            maxFontSize: item.fontSize,
+          };
+        }
+      }
+    });
+    if (currentLine) lines.push(currentLine);
+
+    // Reconstruir el texto de cada línea respetando espacios horizontales
+    const processedLines = lines.map((line) => {
+      line.items.sort((a, b) => a.x - b.x);
+      let text = '';
+      for (let i = 0; i < line.items.length; i++) {
+        const it = line.items[i];
+        if (i === 0) {
+          text += it.str;
+        } else {
+          const prev = line.items[i - 1];
+          const prevEnd = prev.x + prev.width;
+          const gap = it.x - prevEnd;
+          if (gap > 2 && !text.endsWith(' ') && !it.str.startsWith(' ')) {
+            text += ' ';
+          }
+          text += it.str;
+        }
+      }
+      return {
+        text: text.trim(),
+        y: line.y,
+        fontSize: line.maxFontSize,
+      };
+    }).filter((l) => l.text.length > 0);
+
+    pages.push({
+      pageNum: p,
+      width: viewport.width,
+      height: viewport.height,
+      lines: processedLines,
+    });
+  }
+
+  return pages;
+}
+
+/**
+ * Estructura las líneas de texto en bloques lógicos (párrafos, títulos o líneas exactas).
+ */
+function buildDocumentBlocks(pages, mode = 'smart') {
+  const fontSizes = [];
+  pages.forEach((p) => p.lines.forEach((l) => fontSizes.push(l.fontSize)));
+  fontSizes.sort((a, b) => a - b);
+  const medianFontSize = fontSizes.length > 0 ? fontSizes[Math.floor(fontSizes.length / 2)] : 11;
+
+  const resultPages = [];
+  let totalWords = 0;
+
+  pages.forEach((page) => {
+    const blocks = [];
+
+    if (mode === 'lines') {
+      page.lines.forEach((line) => {
+        const isHeading = line.fontSize >= medianFontSize * 1.3 && line.text.length < 90;
+        blocks.push({
+          type: isHeading ? 'heading' : 'paragraph',
+          text: line.text,
+          fontSize: line.fontSize,
+        });
+        totalWords += line.text.split(/\s+/).filter(Boolean).length;
+      });
+    } else {
+      // Modo Párrafos Fluidos
+      let currentParagraph = null;
+      let lastLine = null;
+
+      page.lines.forEach((line) => {
+        const wordsInLine = line.text.split(/\s+/).filter(Boolean).length;
+        totalWords += wordsInLine;
+
+        const isHeading = line.fontSize >= medianFontSize * 1.28 && line.text.length < 100;
+
+        if (isHeading) {
+          if (currentParagraph) {
+            blocks.push(currentParagraph);
+            currentParagraph = null;
+          }
+          blocks.push({
+            type: 'heading',
+            text: line.text,
+            fontSize: line.fontSize,
+          });
+          lastLine = line;
+          return;
+        }
+
+        if (!currentParagraph) {
+          currentParagraph = {
+            type: 'paragraph',
+            text: line.text,
+            fontSize: line.fontSize,
+          };
+        } else {
+          const dy = line.y - lastLine.y;
+          const typicalSpacing = (lastLine.fontSize || medianFontSize) * 1.45;
+          const isLargeGap = dy > typicalSpacing * 1.6;
+          const prevEndsSentence = /[.:?!]$/.test(lastLine.text);
+
+          if (isLargeGap || (prevEndsSentence && dy > typicalSpacing * 1.25)) {
+            blocks.push(currentParagraph);
+            currentParagraph = {
+              type: 'paragraph',
+              text: line.text,
+              fontSize: line.fontSize,
+            };
+          } else {
+            if (currentParagraph.text.endsWith('-')) {
+              currentParagraph.text = currentParagraph.text.slice(0, -1) + line.text;
+            } else {
+              currentParagraph.text += ' ' + line.text;
+            }
+          }
+        }
+
+        lastLine = line;
+      });
+
+      if (currentParagraph) {
+        blocks.push(currentParagraph);
+      }
+    }
+
+    resultPages.push({
+      pageNum: page.pageNum,
+      blocks,
+    });
+  });
+
+  return { pages: resultPages, totalWords };
+}
+
+/**
+ * Genera la vista previa de texto en el área interactiva.
+ */
+function updateWordPreview() {
+  if (!wordState.parsedPages || wordState.parsedPages.length === 0) {
+    wordPreviewText.value = '';
+    wordPreviewStats.textContent = 'Sin documento cargado';
+    return;
+  }
+
+  const docBlocks = buildDocumentBlocks(wordState.parsedPages, wordState.currentMode);
+  const totalPages = docBlocks.pages.length;
+  const totalWords = docBlocks.totalWords;
+
+  let previewContent = '';
+  let emptyPagesCount = 0;
+
+  docBlocks.pages.forEach((page) => {
+    previewContent += `=== [ PÁGINA ${page.pageNum} de ${totalPages} ] ===\n\n`;
+    if (page.blocks.length === 0) {
+      emptyPagesCount++;
+      previewContent += `[Esta página no contiene texto seleccionable. Puede tratarse de un escaneo o imagen]\n\n`;
+    } else {
+      page.blocks.forEach((b) => {
+        if (b.type === 'heading') {
+          previewContent += `## ${b.text.toUpperCase()}\n\n`;
+        } else {
+          previewContent += `${b.text}\n\n`;
+        }
+      });
+    }
+  });
+
+  wordPreviewText.value = previewContent.trim();
+  wordPreviewStats.textContent = `${totalPages} páginas detectadas · ${totalWords.toLocaleString()} palabras`;
+
+  if (totalWords === 0 && emptyPagesCount === totalPages) {
+    showToast('Aviso: El PDF cargado contiene imágenes o escaneos sin texto seleccionable.');
+  }
+}
+
+/**
+ * Crea un archivo .docx binario en el navegador usando la librería docx (MIT).
+ */
+async function generateDocxBlob(docBlocks) {
+  if (!window.docx) {
+    throw new Error('La librería DOCX no pudo cargarse desde CDN. Se utilizará RTF como respaldo compatible.');
+  }
+
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, PageBreak } = window.docx;
+  const docChildren = [];
+
+  docBlocks.pages.forEach((page, pIdx) => {
+    if (pIdx > 0) {
+      docChildren.push(
+        new Paragraph({
+          children: [new PageBreak()],
+        })
+      );
+    }
+
+    if (page.blocks.length === 0) {
+      docChildren.push(
+        new Paragraph({
+          spacing: { after: 120 },
+          children: [
+            new TextRun({
+              text: `[Página ${page.pageNum}: Sin texto detectable en capa vectorial]`,
+              italics: true,
+              color: '527378',
+            }),
+          ],
+        })
+      );
+      return;
+    }
+
+    page.blocks.forEach((block) => {
+      if (block.type === 'heading') {
+        const ptSize = Math.min(32, Math.max(24, Math.round((block.fontSize || 13) * 2)));
+        docChildren.push(
+          new Paragraph({
+            heading: HeadingLevel.HEADING_2,
+            spacing: { before: 240, after: 120 },
+            children: [
+              new TextRun({
+                text: block.text,
+                bold: true,
+                size: ptSize,
+                color: '002B32',
+              }),
+            ],
+          })
+        );
+      } else {
+        docChildren.push(
+          new Paragraph({
+            spacing: { after: 140, line: 276 },
+            children: [
+              new TextRun({
+                text: block.text,
+                size: 22, // 11pt estándar
+                color: '1D3C41',
+              }),
+            ],
+          })
+        );
+      }
+    });
+  });
+
+  const doc = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            margin: {
+              top: 1440,
+              right: 1440,
+              bottom: 1440,
+              left: 1440,
+            },
+          },
+        },
+        children: docChildren.length > 0 ? docChildren : [new Paragraph({ children: [new TextRun('Documento sin texto')] })],
+      },
+    ],
+  });
+
+  return await Packer.toBlob(doc);
+}
+
+/**
+ * Genera un archivo RTF (Rich Text Format) 100% compatible con Microsoft Word, WordPad y LibreOffice.
+ */
+function generateRtfBlob(docBlocks) {
+  function toRtfSafe(str) {
+    let out = '';
+    for (let i = 0; i < str.length; i++) {
+      const code = str.charCodeAt(i);
+      if (code < 128) {
+        if (str[i] === '\\' || str[i] === '{' || str[i] === '}') {
+          out += '\\' + str[i];
+        } else {
+          out += str[i];
+        }
+      } else {
+        out += `\\u${code}?`;
+      }
+    }
+    return out;
+  }
+
+  let rtf = '{\\rtf1\\ansi\\ansicpg1252\\deff0\\deflang3082\n';
+  rtf += '{\\fonttbl{\\f0\\fnil\\fcharset0 Calibri;}{\\f1\\fnil\\fcharset0 Arial;}}\n';
+  rtf += '{\\colortbl ;\\red0\\green43\\blue50;\\red29\\green60\\blue65;}\n';
+  rtf += '\\viewkind4\\uc1\\pard\\f0\\fs22\\cf2\n';
+
+  docBlocks.pages.forEach((page, pIdx) => {
+    if (pIdx > 0) {
+      rtf += '\\page\n';
+    }
+
+    if (page.blocks.length === 0) {
+      rtf += `\\sb100\\sa100\\i [P\\'e1gina ${page.pageNum}: Sin texto vectorial]\\i0\\par\n`;
+      return;
+    }
+
+    page.blocks.forEach((block) => {
+      const safe = toRtfSafe(block.text);
+      if (block.type === 'heading') {
+        const halfPt = Math.min(34, Math.max(26, Math.round((block.fontSize || 14) * 2)));
+        rtf += `\\sb220\\sa120\\b\\fs${halfPt}\\cf1 ${safe}\\b0\\fs22\\cf2\\par\n`;
+      } else {
+        rtf += `\\sb60\\sa140\\fs22 ${safe}\\par\n`;
+      }
+    });
+  });
+
+  rtf += '}';
+  return new Blob([rtf], { type: 'application/rtf;charset=utf-8' });
+}
+
+/**
+ * Genera un archivo de texto plano estructurado (.txt).
+ */
+function generateTxtBlob(docBlocks) {
+  let txt = '';
+  docBlocks.pages.forEach((page, pIdx) => {
+    if (pIdx > 0) {
+      txt += '\n\n' + '='.repeat(60) + `\n--- PÁGINA ${page.pageNum} ---\n` + '='.repeat(60) + '\n\n';
+    } else {
+      txt += `--- PÁGINA ${page.pageNum} ---\n\n`;
+    }
+    page.blocks.forEach((block) => {
+      txt += (block.type === 'heading' ? `\n[${block.text}]\n\n` : `${block.text}\n\n`);
+    });
+  });
+  return new Blob([txt], { type: 'text/plain;charset=utf-8' });
+}
+
+/**
+ * Carga y analiza el archivo PDF seleccionado para la pestaña Word.
+ */
+async function handleWordFile(files) {
+  const file = files[0];
+  if (!file || file.type !== 'application/pdf') {
+    showToast('Por favor selecciona un archivo PDF válido.');
+    return;
+  }
+
+  showStatus('Analizando documento PDF...', 'Extrayendo capas de texto y coordenadas...', 20);
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const parsed = await parsePdfContentForWord(buffer, (cur, total) => {
+      const pct = 20 + Math.round((cur / total) * 70);
+      showStatus('Analizando documento PDF...', `Extrayendo texto de página ${cur} de ${total}...`, pct);
+    });
+
+    wordState.fileName = file.name.replace(/\.pdf$/i, '');
+    wordState.fileSize = file.size;
+    wordState.pageCount = parsed.length;
+    wordState.arrayBuffer = buffer;
+    wordState.parsedPages = parsed;
+
+    document.getElementById('word-file-name').textContent = file.name;
+    document.getElementById('word-file-size').textContent = formatBytes(file.size);
+    document.getElementById('word-page-count').textContent = `${wordState.pageCount} págs`;
+    wordFilenameInput.value = `${wordState.fileName}-editable`;
+
+    updateWordPreview();
+
+    wordResultBox.classList.add('hidden');
+    wordDropzone.classList.add('hidden');
+    wordWorkspace.classList.remove('hidden');
+    hideStatus();
+    showToast(`PDF analizado: ${parsed.length} página(s) listas.`);
+  } catch (err) {
+    console.error(err);
+    hideStatus();
+    showToast('No se pudo extraer el contenido del PDF.');
+  }
+}
+
+// Configuración de zona de arrastre para Word
+setupDropzone(wordDropzone, wordInput, handleWordFile);
+wordBrowseBtn.addEventListener('click', () => wordInput.click());
+
+wordChangeBtn.addEventListener('click', () => {
+  wordState.arrayBuffer = null;
+  wordState.parsedPages = [];
+  wordInput.value = '';
+  wordWorkspace.classList.add('hidden');
+  wordDropzone.classList.remove('hidden');
+  wordResultBox.classList.add('hidden');
+});
+
+// Selector de formato de salida (docx, rtf, txt)
+document.querySelectorAll('.word-format-pills .comp-pill').forEach((pill) => {
+  pill.addEventListener('click', () => {
+    const format = pill.dataset.format || pill.querySelector('input')?.value || 'docx';
+    wordState.currentFormat = format;
+
+    if (format === 'docx') {
+      wordExtensionLabel.textContent = '.docx';
+      wordBtnLabel.textContent = 'Convertir y Descargar Word (.docx)';
+    } else if (format === 'rtf') {
+      wordExtensionLabel.textContent = '.rtf';
+      wordBtnLabel.textContent = 'Convertir y Descargar Documento RTF (.rtf)';
+    } else if (format === 'txt') {
+      wordExtensionLabel.textContent = '.txt';
+      wordBtnLabel.textContent = 'Exportar y Descargar Texto (.txt)';
+    }
+  });
+});
+
+// Selector de modo de extracción (párrafos inteligentes vs líneas)
+if (cardModeSmart && cardModeLines) {
+  cardModeSmart.addEventListener('click', () => {
+    cardModeSmart.classList.add('selected');
+    cardModeLines.classList.remove('selected');
+    const radio = cardModeSmart.querySelector('input');
+    if (radio) radio.checked = true;
+    wordState.currentMode = 'smart';
+    updateWordPreview();
+  });
+
+  cardModeLines.addEventListener('click', () => {
+    cardModeLines.classList.add('selected');
+    cardModeSmart.classList.remove('selected');
+    const radio = cardModeLines.querySelector('input');
+    if (radio) radio.checked = true;
+    wordState.currentMode = 'lines';
+    updateWordPreview();
+  });
+}
+
+// Botón de copiar texto al portapapeles
+wordCopyBtn.addEventListener('click', async () => {
+  const text = wordPreviewText.value;
+  if (!text) {
+    showToast('No hay texto para copiar.');
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('¡Texto copiado al portapapeles con éxito!');
+  } catch (e) {
+    wordPreviewText.select();
+    document.execCommand('copy');
+    showToast('¡Texto copiado al portapapeles!');
+  }
+});
+
+// Botón principal de conversión y descarga
+wordRunBtn.addEventListener('click', async () => {
+  if (!wordState.parsedPages || wordState.parsedPages.length === 0) {
+    showToast('Por favor carga un archivo PDF primero.');
+    return;
+  }
+
+  const format = wordState.currentFormat;
+  const docBlocks = buildDocumentBlocks(wordState.parsedPages, wordState.currentMode);
+  const baseName = (wordFilenameInput.value.trim() || `${wordState.fileName}-editable`).replace(/\.(docx|rtf|txt)$/i, '');
+
+  try {
+    let outBlob = null;
+    let finalFileName = '';
+    let formatLabel = '';
+
+    if (format === 'docx') {
+      showStatus('Generando documento Word (.docx)...', 'Construyendo estructura OpenXML con docx.js...', 40);
+      try {
+        outBlob = await generateDocxBlob(docBlocks);
+        finalFileName = `${baseName}.docx`;
+        formatLabel = 'Microsoft Word (.docx)';
+      } catch (docxErr) {
+        console.warn('Error con docx.js, usando respaldo RTF:', docxErr);
+        showStatus('Generando documento de respaldo...', 'Creando archivo RTF compatible con Word...', 60);
+        outBlob = generateRtfBlob(docBlocks);
+        finalFileName = `${baseName}.rtf`;
+        formatLabel = 'Documento RTF (Compatible con Word)';
+      }
+    } else if (format === 'rtf') {
+      showStatus('Generando documento RTF...', 'Estructurando texto enriquecido...', 50);
+      outBlob = generateRtfBlob(docBlocks);
+      finalFileName = `${baseName}.rtf`;
+      formatLabel = 'Documento RTF (.rtf)';
+    } else {
+      showStatus('Exportando texto...', 'Generando archivo de texto plano...', 50);
+      outBlob = generateTxtBlob(docBlocks);
+      finalFileName = `${baseName}.txt`;
+      formatLabel = 'Texto Plano (.txt)';
+    }
+
+    downloadBlob(outBlob, finalFileName, outBlob.type);
+
+    wordResultBox.classList.remove('hidden');
+    wordResultBox.innerHTML = `
+      <strong>¡Documento editable generado con éxito!</strong><br/>
+      Archivo: <b>${finalFileName}</b> (${formatLabel})<br/>
+      Contenido: <b>${docBlocks.pages.length} páginas</b> procesadas · <b>${docBlocks.totalWords.toLocaleString()} palabras</b> extraídas.
+    `;
+
+    hideStatus();
+    showToast(`¡Documento descargado como ${finalFileName}!`);
+  } catch (err) {
+    console.error(err);
+    hideStatus();
+    showToast('Error al generar el documento editable.');
+  }
+});
