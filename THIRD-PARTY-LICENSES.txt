@@ -1,0 +1,25 @@
+===========================================================================
+RESUMEN DE LICENCIAS DE TERCEROS (100% OPEN SOURCE PERMISIVAS)
+===========================================================================
+
+Este proyecto utiliza exclusivamente librerías de código abierto con licencias
+permisivas (MIT y Apache 2.0) que permiten el uso personal, interno, privado y
+comercial sin obligación de abrir el código propio (sin Copyleft / sin GPL).
+
+1. pdf-lib (v1.17.1)
+   - Autor: Andrew Dillon (Hopding)
+   - Repositorio: https://github.com/Hopding/pdf-lib
+   - Licencia: MIT License
+   - Uso en el proyecto: Creación, unión y extracción de páginas PDF.
+
+2. PDF.js (v3.11.174)
+   - Autor: Mozilla Foundation
+   - Repositorio: https://github.com/mozilla/pdf.js
+   - Licencia: Apache License 2.0
+   - Uso en el proyecto: Renderizado de vistas previas de páginas y compresión visual.
+
+3. fflate (v0.8.2)
+   - Autor: Arjun Barrett (101arrowz)
+   - Repositorio: https://github.com/101arrowz/fflate
+   - Licencia: MIT License
+   - Uso en el proyecto: Empaquetado rápido en formato .ZIP al separar páginas individuales.

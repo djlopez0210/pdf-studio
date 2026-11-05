@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PDF Studio Corporativo — Unir, Separar y Comprimir PDFs</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Librerías 100% Open Source con licencias permisivas (MIT y Apache 2.0) libres para uso comercial/empresarial -->
+  <!-- 1. pdf-lib (Licencia MIT): https://github.com/Hopding/pdf-lib -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <!-- 2. PDF.js de Mozilla (Licencia Apache 2.0): https://github.com/mozilla/pdf.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- 3. fflate (Licencia MIT pura): https://github.com/101arrowz/fflate -->
+  <script src="https://unpkg.com/fflate@0.8.2/umd/index.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Encabezado -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+        </div>
+        <div>
+          <h1>PDF Studio <span class="badge-local">Servidor Privado · Open Source</span></h1>
+          <p class="subtitle">Procesamiento seguro en el navegador del usuario (Licencias MIT & Apache 2.0)</p>
+        </div>
+      </div>
+
+      <!-- Navegación por pestañas -->
+      <nav class="tabs-nav" role="tablist">
+        <button class="tab-btn active" data-tab="merge" role="tab" aria-selected="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            <line x1="12" y1="8" x2="12" y2="16"></line>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+          </svg>
+          Unir PDFs
+        </button>
+        <button class="tab-btn" data-tab="split" role="tab" aria-selected="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="6" cy="6" r="3"></circle>
+            <circle cx="6" cy="18" r="3"></circle>
+            <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+            <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+            <line x1="8.12" y1="8.12" x2="12" y2="12"></line>
+          </svg>
+          Separar PDF
+        </button>
+        <button class="tab-btn" data-tab="compress" role="tab" aria-selected="false">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="4 14 10 14 10 20"></polyline>
+            <polyline points="20 10 14 10 14 4"></polyline>
+            <line x1="14" y1="10" x2="21" y2="3"></line>
+            <line x1="3" y1="21" x2="10" y2="14"></line>
+          </svg>
+          Comprimir PDF
+        </button>
+      </nav>
+    </header>
+
+    <main class="main-content">
+      <!-- ==================== SECCIÓN 1: UNIR PDFs ==================== -->
+      <section id="tab-merge" class="tab-panel active">
+        <div class="panel-header">
+          <div>
+            <h2>Unir varios archivos PDF</h2>
+            <p>Agrega tus archivos PDF, ordénalos y elige el nivel de compresión antes de guardar el documento final.</p>
+          </div>
+        </div>
+
+        <div id="merge-dropzone" class="dropzone">
+          <input type="file" id="merge-input" accept="application/pdf" multiple hidden />
+          <div class="dropzone-icon">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+          </div>
+          <h3>Arrastra y suelta tus archivos PDF aquí</h3>
+          <p>o haz clic para seleccionarlos desde tu carpeta</p>
+          <button type="button" class="btn btn-secondary" id="merge-browse-btn">Seleccionar archivos PDF</button>
+        </div>
+
+        <div id="merge-workspace" class="workspace hidden">
+          <div class="workspace-toolbar">
+            <div class="stats-pill">
+              <span id="merge-count">0 archivos</span> · <span id="merge-total-pages">0 páginas</span> · Peso suma: <strong id="merge-total-size">0 KB</strong>
+            </div>
+            <div class="toolbar-actions">
+              <button type="button" class="btn btn-ghost" id="merge-add-more-btn">+ Agregar más PDFs</button>
+              <button type="button" class="btn btn-danger-ghost" id="merge-clear-btn">Vaciar lista</button>
+            </div>
+          </div>
+
+          <ul id="merge-list" class="file-list"></ul>
+
+          <!-- Selector de compresión al guardar en Unir -->
+          <div class="save-compression-box">
+            <div class="save-compression-header">
+              <span class="save-compression-title">Nivel de compresión al guardar:</span>
+              <span class="save-compression-hint">Puedes unir manteniendo calidad original o comprimir el resultado automáticamente</span>
+            </div>
+            <div class="compression-pills" data-group="merge-compression">
+              <label class="comp-pill">
+                <input type="radio" name="merge-compression" value="none" />
+                <div>
+                  <strong>Sin compresión</strong>
+                  <small>100% Original (Rápido)</small>
+                </div>
+              </label>
+              <label class="comp-pill active">
+                <input type="radio" name="merge-compression" value="low" checked />
+                <div>
+                  <strong>Compresión Baja</strong>
+                  <small>Alta calidad (150 DPI)</small>
+                </div>
+              </label>
+              <label class="comp-pill">
+                <input type="radio" name="merge-compression" value="medium" />
+                <div>
+                  <strong>Compresión Media</strong>
+                  <small>Equilibrada (115 DPI)</small>
+                </div>
+              </label>
+              <label class="comp-pill">
+                <input type="radio" name="merge-compression" value="high" />
+                <div>
+                  <strong>Compresión Alta</strong>
+                  <small>Menor peso (85 DPI)</small>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div id="merge-result-box" class="result-banner hidden"></div>
+
+          <div class="action-bar">
+            <div class="filename-group">
+              <label for="merge-filename">Nombre del PDF final:</label>
+              <div class="input-suffix">
+                <input type="text" id="merge-filename" value="documento-unido" placeholder="documento-unido" />
+                <span>.pdf</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary btn-lg" id="merge-run-btn">
+              <span>Unir y Guardar PDF</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== SECCIÓN 2: SEPARAR PDF ==================== -->
+      <section id="tab-split" class="tab-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Separar o Extraer páginas de un PDF</h2>
+            <p>Selecciona las páginas que necesitas, define el modo de salida y elige el nivel de compresión al guardar.</p>
+          </div>
+        </div>
+
+        <div id="split-dropzone" class="dropzone">
+          <input type="file" id="split-input" accept="application/pdf" hidden />
+          <div class="dropzone-icon">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="6" cy="6" r="3"></circle>
+              <circle cx="6" cy="18" r="3"></circle>
+              <line x1="20" y1="4" x2="8.12" y2="15.88"></line>
+              <line x1="14.47" y1="14.48" x2="20" y2="20"></line>
+            </svg>
+          </div>
+          <h3>Arrastra un archivo PDF para separarlo</h3>
+          <p>Visualizarás todas sus páginas para elegir cómo dividirlo</p>
+          <button type="button" class="btn btn-secondary" id="split-browse-btn">Elegir archivo PDF</button>
+        </div>
+
+        <div id="split-workspace" class="workspace hidden">
+          <div class="workspace-toolbar">
+            <div class="stats-pill">
+              <strong id="split-file-name">archivo.pdf</strong> · <span id="split-total-pages">0 páginas</span> · <span id="split-original-size">0 KB</span>
+            </div>
+            <div class="toolbar-actions">
+              <button type="button" class="btn btn-ghost" id="split-select-all-btn">Seleccionar todas</button>
+              <button type="button" class="btn btn-ghost" id="split-select-none-btn">Deseleccionar</button>
+              <button type="button" class="btn btn-danger-ghost" id="split-change-file-btn">Cambiar PDF</button>
+            </div>
+          </div>
+
+          <div class="split-controls-card">
+            <div class="control-group">
+              <label for="split-range-input">Páginas o rangos seleccionados (ej. <code>1-3, 5, 8-10</code>):</label>
+              <input type="text" id="split-range-input" placeholder="Haz clic en las páginas de abajo o escribe ej: 1-3, 5" />
+            </div>
+            <div class="control-group">
+              <label>Modo de salida:</label>
+              <div class="radio-pills">
+                <label class="radio-pill">
+                  <input type="radio" name="split-mode" value="single-pdf" checked />
+                  <span>Unir páginas seleccionadas en 1 PDF</span>
+                </label>
+                <label class="radio-pill">
+                  <input type="radio" name="split-mode" value="zip-pages" />
+                  <span>Cada página seleccionada en un PDF individual (.ZIP)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div id="split-pages-grid" class="pages-grid"></div>
+
+          <!-- Selector de compresión al guardar en Separar -->
+          <div class="save-compression-box">
+            <div class="save-compression-header">
+              <span class="save-compression-title">Nivel de compresión al guardar:</span>
+              <span class="save-compression-hint">Aplica tanto al PDF extraído como a los PDFs individuales del archivo .ZIP</span>
+            </div>
+            <div class="compression-pills" data-group="split-compression">
+              <label class="comp-pill">
+                <input type="radio" name="split-compression" value="none" />
+                <div>
+                  <strong>Sin compresión</strong>
+                  <small>100% Original</small>
+                </div>
+              </label>
+              <label class="comp-pill active">
+                <input type="radio" name="split-compression" value="low" checked />
+                <div>
+                  <strong>Compresión Baja</strong>
+                  <small>Alta calidad (150 DPI)</small>
+                </div>
+              </label>
+              <label class="comp-pill">
+                <input type="radio" name="split-compression" value="medium" />
+                <div>
+                  <strong>Compresión Media</strong>
+                  <small>Equilibrada (115 DPI)</small>
+                </div>
+              </label>
+              <label class="comp-pill">
+                <input type="radio" name="split-compression" value="high" />
+                <div>
+                  <strong>Compresión Alta</strong>
+                  <small>Menor peso (85 DPI)</small>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div id="split-result-box" class="result-banner hidden"></div>
+
+          <div class="action-bar">
+            <div class="filename-group">
+              <label for="split-filename">Nombre base de salida:</label>
+              <div class="input-suffix">
+                <input type="text" id="split-filename" value="paginas-extraidas" />
+                <span id="split-ext-label">.pdf</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary btn-lg" id="split-run-btn">
+              Extraer y Guardar
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== SECCIÓN 3: COMPRIMIR PDF ==================== -->
+      <section id="tab-compress" class="tab-panel">
+        <div class="panel-header">
+          <div>
+            <h2>Comprimir tamaño de un PDF</h2>
+            <p>Selecciona el nivel de compresión (Baja, Media o Alta) para reducir el tamaño del documento de forma efectiva.</p>
+          </div>
+        </div>
+
+        <div id="compress-dropzone" class="dropzone">
+          <input type="file" id="compress-input" accept="application/pdf" hidden />
+          <div class="dropzone-icon">
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <polyline points="4 14 10 14 10 20"></polyline>
+              <polyline points="20 10 14 10 14 4"></polyline>
+              <line x1="14" y1="10" x2="21" y2="3"></line>
+              <line x1="3" y1="21" x2="10" y2="14"></line>
+            </svg>
+          </div>
+          <h3>Arrastra el PDF que deseas comprimir</h3>
+          <p>Ideal para cumplir límites de correo corporativo o portales de subida</p>
+          <button type="button" class="btn btn-secondary" id="compress-browse-btn">Elegir archivo PDF</button>
+        </div>
+
+        <div id="compress-workspace" class="workspace hidden">
+          <div class="workspace-toolbar">
+            <div class="stats-pill">
+              <strong id="compress-file-name">documento.pdf</strong> · Peso original: <strong id="compress-original-size">0 MB</strong> (<span id="compress-page-count">0 págs</span>)
+            </div>
+            <button type="button" class="btn btn-danger-ghost" id="compress-change-btn">Cambiar archivo</button>
+          </div>
+
+          <div class="compression-options">
+            <label class="preset-card">
+              <input type="radio" name="compress-level" value="low" />
+              <div class="preset-body">
+                <div class="preset-top">
+                  <span class="preset-title">Compresión Baja</span>
+                  <span class="preset-badge badge-blue">Alta Calidad · ~150 DPI</span>
+                </div>
+                <span class="preset-desc">Mantiene excelente nitidez en textos e imágenes (calidad JPEG 80%). Ideal para informes y presentaciones.</span>
+              </div>
+            </label>
+            <label class="preset-card selected">
+              <input type="radio" name="compress-level" value="medium" checked />
+              <div class="preset-body">
+                <div class="preset-top">
+                  <span class="preset-title">Compresión Media</span>
+                  <span class="preset-badge badge-green">Recomendada · ~115 DPI</span>
+                </div>
+                <span class="preset-desc">Equilibrio óptimo entre lectura clara y reducción notable de peso (calidad JPEG 60%).</span>
+              </div>
+            </label>
+            <label class="preset-card">
+              <input type="radio" name="compress-level" value="high" />
+              <div class="preset-body">
+                <div class="preset-top">
+                  <span class="preset-title">Compresión Alta</span>
+                  <span class="preset-badge badge-amber">Máximo Ahorro · ~85 DPI</span>
+                </div>
+                <span class="preset-desc">Prioriza el menor tamaño de archivo posible (calidad JPEG 40%). Ideal para trámites con límite estricto de MB.</span>
+              </div>
+            </label>
+          </div>
+
+          <div id="compress-result-box" class="result-banner hidden"></div>
+
+          <div class="action-bar">
+            <div class="filename-group">
+              <label for="compress-filename">Nombre del PDF comprimido:</label>
+              <div class="input-suffix">
+                <input type="text" id="compress-filename" value="documento-comprimido" />
+                <span>.pdf</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary btn-lg" id="compress-run-btn">
+              Comprimir y Guardar PDF
+            </button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Barra de estado / progreso flotante -->
+    <div id="status-overlay" class="status-overlay hidden">
+      <div class="status-modal">
+        <div class="spinner"></div>
+        <h4 id="status-title">Procesando PDF...</h4>
+        <p id="status-detail">Por favor espera un momento</p>
+        <div class="progress-bar-wrap">
+          <div id="status-progress" class="progress-bar-fill" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notificación Toast -->
+    <div id="toast" class="toast hidden"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
